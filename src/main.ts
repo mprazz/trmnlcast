@@ -3,6 +3,7 @@ import type { TextComponent } from "obsidian";
 import { Budget, FREE_PAYLOAD_BYTES, FREE_PUSHES_PER_HOUR, encode, push } from "./push";
 import type { Screen } from "./screens/types";
 import { claudeUsage } from "./screens/claude-usage";
+import * as secrets from "./secrets";
 
 interface ScreenConfig {
   /** Private-plugin webhook UUID. A bearer credential — never leaves data.json. */
@@ -91,9 +92,18 @@ export default class TrmnlClaudeUsage extends Plugin {
   activeScreens(): Screen[] {
     return this.screens.filter((s) => {
       if (s.desktopOnly && Platform.isMobile) return false;
-      const c = this.configFor(s.id);
-      return c.enabled && c.uuid.trim().length > 0;
+      return this.configFor(s.id).enabled && this.uuidFor(s.id).value.length > 0;
     });
+  }
+
+  /**
+   * The webhook UUID in force for a screen, and where it came from. Resolved
+   * on every use rather than cached at load: an env var or the external file
+   * can change without Obsidian restarting, and a stale cache would send to
+   * the old destination with no indication why.
+   */
+  uuidFor(id: string): secrets.Resolved {
+    return secrets.resolve(id, this.configFor(id).uuid);
   }
 
   everyFor(screen: Screen): number {
@@ -156,7 +166,7 @@ export default class TrmnlClaudeUsage extends Plugin {
         continue;
       }
 
-      const res = await push(cfg.uuid.trim(), vars, {
+      const res = await push(this.uuidFor(screen.id).value, vars, {
         budget: this.budget,
         lastDigest: cfg.lastDigest,
         maxBytes: this.settings.maxBytes,
@@ -242,7 +252,9 @@ function msg(e: unknown): string {
 function warnOnDuplicateUuids(plugin: TrmnlClaudeUsage, el: HTMLElement) {
   const seen = new Map<string, string[]>();
   for (const screen of plugin.screens) {
-    const uuid = plugin.configFor(screen.id).uuid.trim();
+    // The resolved value, not the vault one — a clash between an env var and a
+    // stored UUID is exactly as destructive and exactly as invisible.
+    const uuid = plugin.uuidFor(screen.id).value;
     if (!uuid) continue;
     const list = seen.get(uuid) ?? [];
     list.push(screen.label);
@@ -345,16 +357,25 @@ class TrmnlSettingTab extends PluginSettingTab {
           }),
         );
 
-      new Setting(box)
+      const resolved = this.plugin.uuidFor(screen.id);
+
+      const uuidSetting = new Setting(box)
         .setName(`${screen.label} — webhook UUID`)
-        .setDesc(
-          "The UUID from THIS screen's own private plugin on trmnl.com. Stored in data.json — " +
-            "treat it like a password.",
-        )
-        .addText((t) =>
+        .setDesc("The UUID from THIS screen's own private plugin on trmnl.com. It is a bearer credential: anyone holding it can write to your display.");
+
+      if (resolved.source === "env") {
+        // An env var wins over anything typed here, so offering a text box
+        // would be a lie — edits would save and then be ignored.
+        uuidSetting.setDesc(
+          `${uuidSetting.descEl.getText()} Currently supplied by $${secrets.envVarName(screen.id)}; ` +
+            `unset it to edit the value here.`,
+        );
+      } else {
+        uuidSetting.addText((t) =>
           secret(t)
-            .setPlaceholder(`UUID for "${screen.label}"`)
-            .setValue(cfg.uuid)
+            .setPlaceholder(resolved.source === "file" ? "set in the external credentials file" : `UUID for "${screen.label}"`)
+            .setValue(resolved.source === "file" ? "" : cfg.uuid)
+            .setDisabled(resolved.source === "file")
             .onChange(async (v) => {
               cfg.uuid = v.trim();
               // A new destination invalidates the "already sent this" cache.
@@ -363,6 +384,36 @@ class TrmnlSettingTab extends PluginSettingTab {
               warnOnDuplicateUuids(this.plugin, dupe);
             }),
         );
+      }
+
+      const where = box.createEl("div", { cls: "setting-item-description" });
+      where.setText(secrets.describe(resolved.source, screen.id));
+      if (resolved.source === "vault") where.style.color = "var(--text-warning)";
+
+      if (resolved.source === "vault") {
+        new Setting(box)
+          .setName("Move out of the vault")
+          .setDesc(
+            `Writes it to ${secrets.credentialsPath() ?? "the OS config directory"} with 0600 permissions and ` +
+              "clears it from data.json, so it stops travelling with your notes through Sync, git and backups.",
+          )
+          .addButton((b) =>
+            b.setButtonText("Move").setCta().onClick(async () => {
+              try {
+                const file = secrets.writeExternal(screen.id, cfg.uuid);
+                // Only clear the vault copy once the write has actually
+                // succeeded — the reverse order loses the credential entirely
+                // if the disk write fails.
+                cfg.uuid = "";
+                await this.plugin.saveSettings();
+                new Notice(`TRMNL — moved to ${file}. Keep a copy: nothing else has it now.`, 10_000);
+                this.display();
+              } catch (e) {
+                new Notice(`TRMNL — could not write the credentials file: ${msg(e)}. Nothing was changed.`, 10_000);
+              }
+            }),
+          );
+      }
 
       new Setting(box)
         .setName("Refresh every")

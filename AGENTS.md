@@ -159,12 +159,16 @@ npm run build     # tsc --noEmit then esbuild
   keep it that way.
 - Mask any new settings field holding a credential with the existing `secret()`
   helper. The settings tab is the thing people screenshot when asking for help.
-- **Think hard before a screen requires an API key at all.** Settings land in
-  plaintext in `data.json` inside the user's vault, which may be synced to a
-  third party, committed to git, or readable by every other installed plugin —
-  see the Security section of the README. If a screen needs a credential, prefer
-  a read-only, narrowly-scoped, rotatable one, and say in the `blurb` what it
-  needs and why.
+- **Resolve credentials through `src/secrets.ts`, never from settings
+  directly.** `secrets.resolve(id, vaultValue)` checks an environment variable,
+  then an external file outside the vault (`0600`), then `data.json`. A screen
+  that reads `settings.myToken` itself bypasses all of that and pins the user's
+  credential inside the synced vault.
+- **Think hard before a screen requires an API key at all.** Prefer read-only,
+  narrowly-scoped, rotatable tokens, and say in the `blurb` what it needs and
+  why. Note that no storage option defends against another installed plugin —
+  Obsidian does not sandbox plugins from each other. See the README's Security
+  section for the full threat model before you add anything high-value.
 - Send only what the template renders. A collector is not a place to ship raw
   file contents, prompts, or anything the user did not ask to put on a wall.
 - Keep templates in step with the collector. Liquid renders an unknown variable

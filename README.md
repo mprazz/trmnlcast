@@ -106,40 +106,65 @@ Copy `main.js`, `manifest.json` and `styles.css` into
 depends entirely on how *your* vault is set up, and this plugin cannot control
 that.
 
-### What's stored, and where
+### Where credentials can live
 
-Everything you type into the settings tab is written in **plaintext** to:
+Three places, and the plugin uses the first one that has a value. The settings
+tab always tells you which is in force.
 
-```
-<your vault>/.obsidian/plugins/trmnl-claude-usage/data.json
-```
+| Source | Where it lives | Exposure |
+|---|---|---|
+| **Environment variable** | `TRMNL_UUID_CLAUDE_USAGE` (`TRMNL_UUID_<SCREEN_ID>`) | Never written to disk. Best option if you already manage secrets this way. |
+| **External file** | `$XDG_CONFIG_HOME/obsidian-trmnl/credentials.json`, or `%APPDATA%` on Windows — created `0600`, directory `0700` | Outside the vault, so it is not synced, committed or backed up with your notes. |
+| **Vault** *(default)* | `<vault>/.obsidian/plugins/trmnl-claude-usage/data.json`, plaintext | Travels with your vault everywhere it goes. |
 
-That includes your TRMNL webhook UUID, and any API key a screen you add needs.
-Obsidian has no secret store and no OS keychain integration — every plugin's
-settings are a plain JSON file inside your vault. The settings fields are masked
-in the UI, but that only stops shoulder-surfing and screenshots. It is not
-encryption.
+If your credential is still in the vault, the settings tab says so in amber and
+offers a **Move out of the vault** button: it writes the external file, sets the
+permissions, and clears the value from `data.json`. It only clears the vault
+copy after the write succeeds.
+
+### Why not just encrypt data.json?
+
+Because it would not help, and it would look like it did.
+
+Obsidian does not sandbox plugins from one another. Every community plugin you
+install runs in the same process with the same filesystem access, so anything
+this plugin can decrypt — via the OS keychain, Electron `safeStorage`, or a
+local key file — any other plugin can decrypt too, by calling the same API. The
+ciphertext and the means to read it would sit on the same machine.
+
+The credential is exposed by being inside an artifact that gets **synced,
+committed and backed up**, not by being unencrypted in it. So the fix is to move
+it out of that artifact, which needs no cryptography at all.
+
+Concretely — what moving it out of the vault does and does not prevent:
+
+| | |
+|---|---|
+| ✅ Prevents | Sync carrying it to a third party; `git add -A` publishing it; backup snapshots keeping it forever; another user reading your vault folder; a screenshot of a file listing |
+| ❌ Does not prevent | A malicious Obsidian plugin; malware running as your user; anyone with your unlocked machine |
+
+Nothing a plugin can do prevents the second column. Anyone claiming otherwise is
+selling you comfort.
 
 ### A webhook UUID is a bearer credential
 
 Anyone holding it can POST to your display. There is no second factor, no
-signature, no origin check — the URL *is* the authentication. Treat it like a
-password:
+signature, no origin check — the URL *is* the authentication. The blast radius
+is real but bounded: someone can write nonsense to your screen. They cannot read
+your vault or your TRMNL account through it. Rotate one by deleting and
+recreating the private plugin on trmnl.com.
 
-- Don't commit it. `data.json` is gitignored here; check that's true wherever
-  you keep your vault.
-- Don't screenshot the settings tab. This is the realistic leak: you hit a
-  problem, you screenshot the panel to ask for help. Fields are masked to make
-  that survivable, but reveal one and forget, and it's in the image.
-- Rotate it by deleting and recreating the private plugin on trmnl.com if you
-  think it's been seen.
-
-The blast radius is real but bounded: someone can write nonsense to your screen.
-They cannot read your vault or your account through it.
+The realistic leak is a screenshot. You hit a problem, you capture the settings
+tab to ask for help. Every credential field here is a masked input to make that
+survivable — but reveal one and forget, and it is in the image.
 
 ### Where your setup changes the risk
 
-| Your setup | What it means for `data.json` |
+This table is about the **vault** option only. Move the credential out and every
+row below stops applying — which is the entire reason the other two options
+exist.
+
+| Your setup | What it means for a credential left in `data.json` |
 |---|---|
 | **Obsidian Sync** | Config sync is opt-in per category. If plugin settings are included, your credentials travel to every synced device and through Obsidian's servers. |
 | **iCloud / Dropbox / Google Drive** | Credentials sit in a third party's storage, in plaintext, under whatever retention and sharing that provider applies. Check the folder isn't in a shared drive. |
@@ -147,25 +172,22 @@ They cannot read your vault or your account through it.
 | **Shared or work machine** | Any user who can read your vault directory can read the file. There are no filesystem permissions beyond whatever your vault folder already has. |
 | **Backups** | Plaintext credentials are in every snapshot, including ones you can't easily purge. |
 
-### Other plugins can read it
-
-Obsidian's plugin API doesn't sandbox plugins from each other's data. Any other
-community plugin you install can read this plugin's `data.json` — and this one
-could read theirs. That's true across the whole ecosystem, not specific to this
-plugin, but it's worth knowing before you paste a high-value API key into *any*
-Obsidian plugin.
-
 ### If you add screens that need real credentials
 
 The built-in Claude usage screen needs nothing but a webhook UUID. If you write
 a screen that talks to an API:
 
+- Resolve it through `src/secrets.ts` rather than reading settings directly, so
+  it inherits the env / external-file / vault precedence and the migration
+  button for free.
 - Prefer **read-only, narrowly-scoped** tokens. A stats-read key is a much
-  smaller problem in a synced plaintext file than an account-wide token.
+  smaller problem than an account-wide one, wherever it is stored.
 - Prefer a token you can **rotate cheaply** and that has an expiry.
 - Mask the field with the existing `secret()` helper.
-- Consider whether the data could be fetched elsewhere and written into a note,
-  so the credential never enters your vault config at all.
+- Remember that no storage location here defends against another installed
+  plugin. For a genuinely high-value credential, consider fetching the data in
+  something outside Obsidian and writing the result into a note, so the token
+  never reaches your vault or this process at all.
 
 ### What this plugin sends, and where
 
