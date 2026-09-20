@@ -8,3 +8,14 @@
   margin: 14px 0 0;
   font-size: var(--font-ui-medium);
 }
+
+/* Severity for settings-tab messages.
+   Classes rather than inline `style.color` so a theme can restyle or override
+   them, and because Obsidian's plugin review asks for it. Both map to theme
+   variables, so they follow light/dark and any theme that redefines them. */
+.trmnl-warn {
+  color: var(--text-warning);
+}
+.trmnl-error {
+  color: var(--text-error);
+}

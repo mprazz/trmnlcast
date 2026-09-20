@@ -340,11 +340,11 @@ class TrmnlSettingTab extends PluginSettingTab {
         // Say it once, here, instead of failing every push. The settings stay
         // editable so the UUID can be pasted on whichever device is to hand.
         box.createEl("div", {
-          cls: "setting-item-description",
+          cls: "setting-item-description trmnl-warn",
           text:
             "This screen needs a desktop — it reads files outside the vault. It is skipped on " +
             "this device and will push normally from your computer.",
-        }).style.color = "var(--text-warning)";
+        });
       }
 
       new Setting(box)
@@ -388,7 +388,7 @@ class TrmnlSettingTab extends PluginSettingTab {
 
       const where = box.createEl("div", { cls: "setting-item-description" });
       where.setText(secrets.describe(resolved.source, screen.id));
-      if (resolved.source === "vault") where.style.color = "var(--text-warning)";
+      where.toggleClass("trmnl-warn", resolved.source === "vault");
 
       if (resolved.source === "vault") {
         new Setting(box)
@@ -454,13 +454,15 @@ class TrmnlSettingTab extends PluginSettingTab {
           const { bytes } = encode(vars);
           const max = this.plugin.settings.maxBytes;
           size.setText(`Payload size: ${bytes} / ${max} bytes${bytes > max ? " — OVER LIMIT, trim the collector" : ""}`);
-          size.style.color = bytes > max ? "var(--text-error)" : bytes > max * 0.9 ? "var(--text-warning)" : "";
+          // Tri-state, so both classes are set explicitly rather than only the
+          // one that applies — this element is re-measured in place.
+          size.toggleClass("trmnl-error", bytes > max);
+          size.toggleClass("trmnl-warn", bytes <= max && bytes > max * 0.9);
         })
         .catch((e) => size.setText(`Payload size: collect failed — ${msg(e)}`));
     }
 
-    const dupe = containerEl.createEl("div", { cls: "setting-item-description" });
-    dupe.style.color = "var(--text-error)";
+    const dupe = containerEl.createEl("div", { cls: "setting-item-description trmnl-error" });
     warnOnDuplicateUuids(this.plugin, dupe);
 
     const n = this.plugin.activeScreens().length;
@@ -478,8 +480,9 @@ class TrmnlSettingTab extends PluginSettingTab {
 
     if (perHour > limit) {
       budget.descEl.createEl("div", {
+        cls: "trmnl-error",
         text: `⚠ Scheduled rate exceeds the hourly limit — slow down a screen's refresh, or some will be skipped.`,
-      }).style.color = "var(--text-error)";
+      });
     }
   }
 }
