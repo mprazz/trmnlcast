@@ -37,6 +37,23 @@ this.screens = [claudeUsage, myScreen];
 That is the whole integration. Do not add a settings field, a timer or a push
 call — the registry handles all three.
 
+### Desktop-only screens
+
+Set `desktopOnly: true` when `collect` needs something mobile Obsidian does not
+have: `require("fs")`, a path outside the vault, a child process. The scheduler
+then drops the screen on mobile *before* `collect` runs, and the settings tab
+explains why once.
+
+Do not instead let `collect` throw on mobile. That is what this plugin did
+first, and a phone with it enabled raised the same error as a notice on every
+one-minute tick. A device that cannot possibly run a screen is not a failure.
+
+A screen that only reads the vault needs no flag and runs everywhere.
+
+**`manifest.json` currently sets `isDesktopOnly: true`**, because the one
+bundled screen is. If you remove that screen and every screen you add reads only
+the vault, flip it to `false` so the plugin installs on mobile.
+
 ## Rules that are not negotiable
 
 **One screen is one private plugin on trmnl.com, with its own webhook UUID.**
@@ -142,6 +159,14 @@ npm run build     # tsc --noEmit then esbuild
   keep it that way.
 - Mask any new settings field holding a credential with the existing `secret()`
   helper. The settings tab is the thing people screenshot when asking for help.
+- **Think hard before a screen requires an API key at all.** Settings land in
+  plaintext in `data.json` inside the user's vault, which may be synced to a
+  third party, committed to git, or readable by every other installed plugin —
+  see the Security section of the README. If a screen needs a credential, prefer
+  a read-only, narrowly-scoped, rotatable one, and say in the `blurb` what it
+  needs and why.
+- Send only what the template renders. A collector is not a place to ship raw
+  file contents, prompts, or anything the user did not ask to put on a wall.
 - Keep templates in step with the collector. Liquid renders an unknown variable
   as the empty string, so renaming a field in `collect` without updating the
   markup does not error — the line just silently vanishes from the panel.

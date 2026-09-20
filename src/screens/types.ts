@@ -26,5 +26,16 @@ export interface Screen {
    * is shared with every other screen on the account.
    */
   defaultEvery: number;
+  /**
+   * Set when `collect` needs something mobile Obsidian does not have —
+   * `require("fs")`, a path outside the vault, a child process. The scheduler
+   * skips these on mobile *silently* rather than letting `collect` throw: a
+   * screen that cannot possibly work on this device is not a failure worth a
+   * notification every minute.
+   *
+   * A screen that only reads the vault does not need this and will run
+   * everywhere.
+   */
+  desktopOnly?: boolean;
   collect(app: App): Promise<Record<string, unknown>>;
 }

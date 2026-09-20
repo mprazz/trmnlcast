@@ -33,6 +33,7 @@ export const claudeUsage: Screen = {
   blurb: "Current 5-hour block, burn rate, reset time, and which model is doing the work.",
   // The only screen with a genuinely live number: the block moves all day.
   defaultEvery: 60,
+  desktopOnly: true,
 
   async collect(_app: App) {
     const nodeRequire = (globalThis as { require?: (m: string) => unknown }).require;

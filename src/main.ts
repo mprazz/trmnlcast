@@ -1,4 +1,4 @@
-import { App, Notice, Plugin, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, Platform, Plugin, PluginSettingTab, Setting } from "obsidian";
 import type { TextComponent } from "obsidian";
 import { Budget, FREE_PAYLOAD_BYTES, FREE_PUSHES_PER_HOUR, encode, push } from "./push";
 import type { Screen } from "./screens/types";
@@ -80,9 +80,17 @@ export default class TrmnlClaudeUsage extends Plugin {
     return this.settings.screens[id];
   }
 
-  /** Enabled screens with a UUID — the ones that actually spend budget. */
+  /**
+   * Enabled screens with a UUID — the ones that actually spend budget.
+   *
+   * Desktop-only screens drop out on mobile here, at the scheduler, so they
+   * are never collected and never raise an error. Letting `collect` throw instead
+   * turns "this device cannot run this screen" into an hourly notification,
+   * which is noise, not information.
+   */
   activeScreens(): Screen[] {
     return this.screens.filter((s) => {
+      if (s.desktopOnly && Platform.isMobile) return false;
       const c = this.configFor(s.id);
       return c.enabled && c.uuid.trim().length > 0;
     });
@@ -116,14 +124,20 @@ export default class TrmnlClaudeUsage extends Plugin {
    * cost one push out of the hourly twelve, not one per enabled screen.
    */
   async pushAll(manual: boolean, only?: string) {
-    const active = this.screens.filter((s) => {
-      if (only && s.id !== only) return false;
-      const c = this.configFor(s.id);
-      return c.enabled && c.uuid.trim().length > 0;
-    });
+    // Goes through activeScreens() rather than re-deriving the predicate, so
+    // the mobile and enabled/UUID rules cannot drift between the scheduler and
+    // a manual push.
+    const active = this.activeScreens().filter((s) => !only || s.id === only);
 
     if (active.length === 0) {
-      if (manual) new Notice("TRMNL: no screen is enabled with a webhook UUID.");
+      if (manual) {
+        const blocked = this.screens.some((s) => s.desktopOnly && Platform.isMobile);
+        new Notice(
+          blocked
+            ? "TRMNL: every enabled screen needs a desktop — nothing to push from mobile."
+            : "TRMNL: no screen is enabled with a webhook UUID.",
+        );
+      }
       return;
     }
 
@@ -184,6 +198,10 @@ export default class TrmnlClaudeUsage extends Plugin {
   async preview() {
     const lines: string[] = [];
     for (const screen of this.screens) {
+      if (screen.desktopOnly && Platform.isMobile) {
+        lines.push(`${screen.label}: skipped — desktop only`);
+        continue;
+      }
       try {
         const vars = await screen.collect(this.app);
         const { bytes } = encode(vars);
@@ -305,6 +323,18 @@ class TrmnlSettingTab extends PluginSettingTab {
       const box = containerEl.createDiv({ cls: "trmnl-screen-box" });
       box.createEl("h4", { text: screen.label, cls: "trmnl-screen-title" });
 
+      const unavailable = !!screen.desktopOnly && Platform.isMobile;
+      if (unavailable) {
+        // Say it once, here, instead of failing every push. The settings stay
+        // editable so the UUID can be pasted on whichever device is to hand.
+        box.createEl("div", {
+          cls: "setting-item-description",
+          text:
+            "This screen needs a desktop — it reads files outside the vault. It is skipped on " +
+            "this device and will push normally from your computer.",
+        }).style.color = "var(--text-warning)";
+      }
+
       new Setting(box)
         .setName("Enabled")
         .setDesc(screen.blurb)
@@ -362,6 +392,10 @@ class TrmnlSettingTab extends PluginSettingTab {
         );
 
       const size = box.createEl("div", { cls: "setting-item-description" });
+      if (unavailable) {
+        size.setText("Payload size: not measurable on this device.");
+        continue;
+      }
       size.setText("Payload size: measuring…");
       void screen
         .collect(this.plugin.app)
