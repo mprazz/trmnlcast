@@ -1,6 +1,6 @@
 {
-  "id": "trmnl-claude-usage",
-  "name": "Claude Usage for TRMNL",
+  "id": "trmnlcast",
+  "name": "TRMNLcast",
   "version": "0.1.0",
   "minAppVersion": "1.5.0",
   "description": "A TRMNL Obsidian bridge: pushes your Claude Code token usage — and any other screen you write — to a TRMNL e-ink display over a private-plugin webhook.",

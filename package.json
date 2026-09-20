@@ -1,5 +1,5 @@
 {
-  "name": "obsidian-trmnl-claude-usage",
+  "name": "trmnlcast",
   "version": "0.1.0",
   "description": "Obsidian plugin that pushes Claude Code usage to a TRMNL e-ink display.",
   "license": "MIT",

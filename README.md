@@ -1,4 +1,4 @@
-# Claude Usage for TRMNL
+# TRMNLcast
 
 **`trmnl-obsidian-bridge`**
 
@@ -105,7 +105,7 @@ npm run build
 ```
 
 Copy `main.js`, `manifest.json` and `styles.css` into
-`<vault>/.obsidian/plugins/trmnl-claude-usage/`.
+`<vault>/.obsidian/plugins/trmnlcast/`.
 
 ---
 
@@ -124,7 +124,7 @@ tab always tells you which is in force.
 |---|---|---|
 | **Environment variable** | `TRMNL_UUID_CLAUDE_USAGE` (`TRMNL_UUID_<SCREEN_ID>`) | Never written to disk. Best option if you already manage secrets this way. |
 | **External file** | `$XDG_CONFIG_HOME/obsidian-trmnl/credentials.json`, or `%APPDATA%` on Windows — created `0600`, directory `0700` | Outside the vault, so it is not synced, committed or backed up with your notes. |
-| **Vault** *(default)* | `<vault>/.obsidian/plugins/trmnl-claude-usage/data.json`, plaintext | Travels with your vault everywhere it goes. |
+| **Vault** *(default)* | `<vault>/.obsidian/plugins/trmnlcast/data.json`, plaintext | Travels with your vault everywhere it goes. |
 
 If your credential is still in the vault, the settings tab says so in amber and
 offers a **Move out of the vault** button: it writes the external file, sets the

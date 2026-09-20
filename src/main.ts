@@ -217,7 +217,7 @@ export default class TrmnlClaudeUsage extends Plugin {
         const { bytes } = encode(vars);
         const flag = bytes > this.settings.maxBytes ? " ✗ OVER" : bytes > this.settings.maxBytes * 0.9 ? " ⚠ tight" : "";
         lines.push(`${screen.label}: ${bytes}B / ${this.settings.maxBytes}B${flag}`);
-        console.log(`[trmnl-claude-usage] ${screen.id}`, vars);
+        console.log(`[trmnlcast] ${screen.id}`, vars);
       } catch (e) {
         lines.push(`${screen.label}: collect failed — ${msg(e)}`);
       }

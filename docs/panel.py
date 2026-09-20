@@ -71,5 +71,6 @@ s = "as of 22:28"
 d.text((W - M - d.textlength(s, font=f_i), by + 15 * S), s, font=f_i, fill=GRAY)
 
 out = img.resize((800, 480), Image.LANCZOS)
-out.save("/home/mprazz/repos/obsidian-trmnl-claude-usage/docs/panel.png", optimize=True)
+import os
+out.save(os.path.join(os.path.dirname(os.path.abspath(__file__)), "panel.png"), optimize=True)
 print("wrote docs/panel.png", out.size)
