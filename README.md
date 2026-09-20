@@ -21,6 +21,10 @@ export const myScreen: Screen = {
 Add that to an array, write four Liquid templates, done. You get the scheduler,
 the push budget, a settings UI and the error handling for free.
 
+![The Claude usage screen's full layout, rendered at the panel's native 800x480](docs/panel.png)
+
+<sub>The `full` layout, drawn at the panel's native 800×480 from the values the template actually renders. A render, not a photo of hardware — regenerate with `python3 docs/panel.py`.</sub>
+
 ## What the framework gives you
 
 | | |
