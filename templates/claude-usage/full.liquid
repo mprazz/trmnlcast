@@ -11,7 +11,7 @@ merge variables have not changed, and a webhook plugin's variables change only
 when we push. No push, no render, so `now_s` is frozen at the last render and
 `age_m` stays ~0. Kept anyway — it costs ~20 bytes and is correct if TRMNL ever
 renders on a wall clock. The line doing the real work is `as_of` in the title
-bar, stamped at push time. See CLAUDE.md, "The quiet version of that failure".
+bar, stamped at push time. See AGENTS.md, "Say how old the data is".
 {% endcomment %}
 {% assign now_s = "now" | date: "%s" | plus: 0 %}
 {% assign age_m = now_s | minus: as_of_epoch | divided_by: 60 | floor %}
