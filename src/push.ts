@@ -97,6 +97,22 @@ function detail(res: { text?: string; json?: unknown }): string {
   return t ? t.slice(0, 300) : "no detail returned";
 }
 
+/**
+ * Remove the webhook UUID from anything that might be shown to the user.
+ *
+ * The UUID is in the request URL, and error messages love quoting the URL they
+ * failed on — Electron's network errors do it, and a server can echo it back in
+ * a body. Those strings end up in a Notice, on screen, in whatever screenshot
+ * gets attached to a bug report. The settings field is a masked input for
+ * exactly this reason; an unredacted error undoes that in one toast.
+ *
+ * Cheap and unconditional rather than clever: substring replacement, applied to
+ * every error leaving this function, so a new error path cannot forget to do it.
+ */
+function redact(text: string, uuid: string): string {
+  return uuid ? text.split(uuid).join("<webhook-uuid>") : text;
+}
+
 export async function push(
   uuid: string,
   vars: Record<string, unknown>,
@@ -145,12 +161,12 @@ export async function push(
       // private plugin's Strategy field is still set to Polling rather than
       // Webhook. A bare status code sends you to their website to find that
       // out, so surface whatever they said.
-      return { ok: false, bytes, status: res.status, digest: d, error: `HTTP ${res.status} — ${detail(res)}` };
+      return { ok: false, bytes, status: res.status, digest: d, error: redact(`HTTP ${res.status} — ${detail(res)}`, uuid) };
     }
 
     opts.budget.spend();
     return { ok: true, bytes, status: res.status, digest: d };
   } catch (e) {
-    return { ok: false, bytes, digest: d, error: e instanceof Error ? e.message : String(e) };
+    return { ok: false, bytes, digest: d, error: redact(e instanceof Error ? e.message : String(e), uuid) };
   }
 }

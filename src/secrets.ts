@@ -137,7 +137,16 @@ export function writeExternal(screenId: string, value: string): string {
   if (value.trim()) map[screenId] = value.trim();
   else delete map[screenId];
 
-  fs.writeFileSync(file, JSON.stringify(map, null, 2) + "\n", { mode: 0o600 });
+  // Write-then-rename, not write-in-place. writeFileSync truncates first, so a
+  // crash or a full disk midway through would leave a truncated file — and for
+  // anyone who has used the Move button, this file is the only copy of the
+  // credential. rename(2) within one directory is atomic: readers see either
+  // the old file or the new one, never a half-written one.
+  const tmp = `${file}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(map, null, 2) + "\n", { mode: 0o600 });
+  if (process.platform !== "win32") fs.chmodSync(tmp, 0o600);
+  fs.renameSync(tmp, file);
+
   if (process.platform !== "win32") {
     fs.chmodSync(file, 0o600);
     try {
