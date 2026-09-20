@@ -1,5 +1,7 @@
 # Claude Usage for TRMNL
 
+**`trmnl-obsidian-bridge`**
+
 A small framework for pushing anything you can compute in Obsidian to a
 [TRMNL](https://trmnl.com) e-ink display — shipping with one screen built in:
 your Claude Code token usage.
@@ -91,6 +93,9 @@ Pushes stop while the machine is asleep. A closed laptop means the panel keeps
 showing whatever it last received, which is why the collection time appears on
 every layout: an hours-old block total that looks live is worse than no screen
 at all.
+
+I personally keep an always-on computer, so this works perfectly.
+Anyway if my laptop is off, it's unlikely i have eyes on my TRMNL.
 
 ## Building
 

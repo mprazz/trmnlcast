@@ -3,7 +3,7 @@
   "name": "Claude Usage for TRMNL",
   "version": "0.1.0",
   "minAppVersion": "1.5.0",
-  "description": "Pushes your Claude Code token usage to a TRMNL e-ink display via a private-plugin webhook.",
+  "description": "A TRMNL Obsidian bridge: pushes your Claude Code token usage — and any other screen you write — to a TRMNL e-ink display over a private-plugin webhook.",
   "author": "Mariana Prazeres-Pinto",
   "authorUrl": "https://mprazeres.dev",
   "isDesktopOnly": true
