@@ -1,0 +1,8 @@
+node_modules/
+main.js
+main.js.map
+*.log
+
+# Never commit plugin settings — data.json holds the webhook UUID, which is a
+# bearer credential for writing to the display.
+data.json

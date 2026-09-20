@@ -1,0 +1,37 @@
+{% comment %} See full.liquid for the guard. This size had no timestamp at all,
+which made it the worst offender: a big absolute "17:00" with nothing anywhere
+on the panel saying when it was collected. The title bar now carries as_of at
+every age, and the sub-line switches to the age once the data is stale.
+
+The headline stays resets_at either way — it is an absolute clock time and does
+not decay, so it is the one number worth the whole quadrant even hours late.
+{% endcomment %}
+{% assign now_s = "now" | date: "%s" | plus: 0 %}
+{% assign age_m = now_s | minus: as_of_epoch | divided_by: 60 | floor %}
+{% if age_m >= 90 %}{% assign stale = true %}{% else %}{% assign stale = false %}{% endif %}
+
+<div class="layout layout--center">
+  {% comment %} flex--col is required here: layout--center alone lets the spans
+  flow inline, which put "17:00 usage resets" on one line with the token count
+  floating off to the right. {% endcomment %}
+  <div class="flex flex--col flex--center-x">
+    {% if active == 1 %}
+      <span class="value value--xlarge value--tnums" data-fit-value="true">{{ resets_at }}</span>
+      <span class="label">usage resets</span>
+      {% unless stale %}
+        <span class="description description--small">{{ block_tokens }} used</span>
+      {% else %}
+        <span class="description description--small">{{ block_tokens }} as of {{ as_of }}</span>
+      {% endunless %}
+    {% else %}
+      <span class="value value--large value--tnums" data-fit-value="true">{{ day_tokens }}</span>
+      <span class="label">used today</span>
+      <span class="description description--small">no active block</span>
+    {% endif %}
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Claude</span>
+  <span class="instance">{% if stale %}{% if age_m < 120 %}{{ age_m }}m{% else %}{{ age_m | divided_by: 60 | floor }}h{% endif %} old{% else %}as of {{ as_of }}{% endif %}</span>
+</div>

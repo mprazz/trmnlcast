@@ -1,0 +1,41 @@
+{% comment %} See full.liquid for why this guard exists. The one line under
+resets_at carries left_approx, which decays — past 90 min it is replaced by the
+age rather than dropped, because at this width that line is the only place a
+staleness signal fits. {% endcomment %}
+{% assign now_s = "now" | date: "%s" | plus: 0 %}
+{% assign age_m = now_s | minus: as_of_epoch | divided_by: 60 | floor %}
+{% if age_m >= 90 %}{% assign stale = true %}{% else %}{% assign stale = false %}{% endif %}
+
+<div class="layout layout--top">
+  <div class="flex flex--col flex--left">
+    {% if active == 1 %}
+      <span class="label label--underline">Resets at</span>
+      <span class="value value--xlarge value--tnums">{{ resets_at }}</span>
+      {% unless stale %}
+        <span class="label label--gray">{{ left_approx }} · {{ block_tokens }}</span>
+      {% else %}
+        <span class="label label--gray">{{ block_tokens }} · {% if age_m < 120 %}{{ age_m }}m{% else %}{{ age_m | divided_by: 60 | floor }}h{% endif %} old</span>
+      {% endunless %}
+    {% else %}
+      <span class="label label--underline">Today</span>
+      <span class="value value--large value--tnums">{{ day_tokens }}</span>
+      <span class="label label--gray">no active block</span>
+    {% endif %}
+
+    {% comment %} Percentages only at this width — absolute token counts push
+    the model name onto a second line and the split is what matters here. {% endcomment %}
+    {% for m in models limit: 3 %}
+      <div class="item">
+        <div class="content">
+          <span class="title title--small">{{ m.n }}</span>
+          <span class="description description--small">{{ m.p }}%</span>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Claude usage</span>
+  <span class="instance">as of {{ as_of }}</span>
+</div>

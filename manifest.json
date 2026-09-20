@@ -1,0 +1,10 @@
+{
+  "id": "trmnl-claude-usage",
+  "name": "Claude Usage for TRMNL",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Pushes your Claude Code token usage to a TRMNL e-ink display via a private-plugin webhook.",
+  "author": "Mariana Prazeres-Pinto",
+  "authorUrl": "https://mprazeres.dev",
+  "isDesktopOnly": true
+}

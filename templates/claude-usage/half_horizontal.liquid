@@ -1,0 +1,50 @@
+{% comment %} See full.liquid for why this guard exists. Short version: pushes
+stop while the laptop is suspended, so `age_m` is how old these numbers are and
+anything computed against collection time has to be suppressed past 90 min.
+At half width there is no room for an extra line, so the stale variants
+*replace* the live ones rather than adding to them. {% endcomment %}
+{% assign now_s = "now" | date: "%s" | plus: 0 %}
+{% assign age_m = now_s | minus: as_of_epoch | divided_by: 60 | floor %}
+{% if age_m >= 90 %}{% assign stale = true %}{% else %}{% assign stale = false %}{% endif %}
+
+<div class="layout layout--top">
+  <div class="grid">
+    <div class="col--span-4">
+      <div class="flex flex--col flex--left">
+        {% if active == 1 %}
+          <span class="label">Resets</span>
+          <span class="value value--xlarge value--tnums">{{ resets_at }}</span>
+        {% else %}
+          <span class="label">Today</span>
+          <span class="value value--xlarge value--tnums">{{ day_tokens }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="col--span-8">
+      <div class="flex flex--col flex--left">
+        {% if active == 1 %}
+          {% unless stale %}
+            <span class="label label--underline">{{ block_tokens }} this block · {{ burn_per_min }}/min</span>
+          {% else %}
+            <span class="label label--underline">{{ block_tokens }} as of {{ as_of }}</span>
+          {% endunless %}
+        {% else %}
+          <span class="label label--underline">No active block</span>
+        {% endif %}
+        <span class="description description--small">{% for m in models %}{{ m.n }} {{ m.p }}%{% unless forloop.last %} · {% endunless %}{% endfor %}</span>
+        {% if active == 1 %}
+          {% unless stale %}
+            <span class="label label--gray">{{ left_approx }} remaining</span>
+          {% else %}
+            <span class="label label--gray">laptop asleep · {% if age_m < 120 %}{{ age_m }}m{% else %}{{ age_m | divided_by: 60 | floor }}h{% endif %} old</span>
+          {% endunless %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="title_bar">
+  <span class="title">Claude usage</span>
+  <span class="instance">as of {{ as_of }}</span>
+</div>

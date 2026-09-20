@@ -1,0 +1,92 @@
+{% comment %} Staleness. `as_of_epoch` is when the laptop last pushed; `"now"`
+is whenever TRMNL last rendered this markup. The gap between them is how old
+the numbers on the glass actually are.
+
+90 minutes because this screen pushes hourly — past that, a scheduled push was
+missed outright, which in practice means the laptop was suspended. Normal
+cadence jitter never trips it.
+
+In practice this branch is unreachable: TRMNL skips screen generation when the
+merge variables have not changed, and a webhook plugin's variables change only
+when we push. No push, no render, so `now_s` is frozen at the last render and
+`age_m` stays ~0. Kept anyway — it costs ~20 bytes and is correct if TRMNL ever
+renders on a wall clock. The line doing the real work is `as_of` in the title
+bar, stamped at push time. See CLAUDE.md, "The quiet version of that failure".
+{% endcomment %}
+{% assign now_s = "now" | date: "%s" | plus: 0 %}
+{% assign age_m = now_s | minus: as_of_epoch | divided_by: 60 | floor %}
+{% if age_m >= 90 %}{% assign stale = true %}{% else %}{% assign stale = false %}{% endif %}
+
+<div class="layout layout--top">
+  {% if active == 1 %}
+    <div class="grid">
+      <div class="col--span-5">
+        {% comment %} value--xxlarge, not mega: at mega "17:00" is wider than a
+        5-column cell and overruns into the model list beside it. Grid cells do
+        not clip, so an oversized value silently overlaps its neighbour.
+        flex--left keeps this column's alignment matching the one beside it. {% endcomment %}
+        <div class="flex flex--col flex--left gap">
+          <span class="label label--underline">Resets at</span>
+          {% comment %} resets_at is an absolute clock time — it does not move
+          within a block, so it stays honest however old this render is.
+          Everything under it is computed against collection time and decays,
+          which is why the guard wraps those lines and not this one. {% endcomment %}
+          <span class="value value--xxlarge value--tnums">{{ resets_at }}</span>
+          {% unless stale %}
+            <span class="label">{{ left_approx }} left</span>
+            <span class="label label--gray">{{ block_tokens }} this block · {{ burn_per_min }}/min</span>
+          {% else %}
+            {% comment %} An hours-old "about 3h 30m left" is not stale, it is
+            wrong, and burn_per_min divides by an elapsed time that kept growing
+            after the push. block_tokens survives the cut: it undercounts rather
+            than lying, and saying so out loud is the whole point of the screen. {% endcomment %}
+            <span class="label label--gray">{{ block_tokens }} as of {{ as_of }}</span>
+            <span class="label label--gray">laptop asleep — not live</span>
+          {% endunless %}
+        </div>
+      </div>
+      <div class="col--span-7">
+        <div class="flex flex--col flex--left">
+          <span class="label label--underline">Today — {{ day_tokens }}</span>
+          {% for m in models %}
+            <div class="item">
+              <div class="content">
+                <span class="title title--base">{{ m.n }}</span>
+                <span class="description description--small">{{ m.t }} · {{ m.p }}% of today</span>
+              </div>
+            </div>
+          {% endfor %}
+          {% comment %} "Currently" is a claim about right now, so it goes with
+          the other decaying lines. The model split above it is a snapshot of a
+          finished day and reads fine at any age. {% endcomment %}
+          {% if top_model != "" and stale == false %}
+            <span class="label label--gray">Currently mostly {{ top_model }}</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  {% else %}
+    {% comment %} No open block. Not an error — nothing sent for five hours, so
+    the day's total is the useful thing to say, not a zero. {% endcomment %}
+    <div class="flex flex--col flex--left gap">
+      <span class="value value--xlarge">No active block</span>
+      <span class="label label--gray">{{ day_tokens }} used today</span>
+      {% for m in models %}
+        <div class="item">
+          <div class="content">
+            <span class="title title--base">{{ m.n }}</span>
+            <span class="description description--small">{{ m.t }} · {{ m.p }}%</span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+
+<div class="title_bar">
+  <span class="title">Claude usage</span>
+  {% comment %} "as of" rather than a bare clock: the old markup put "21:19"
+  here, which at a glance reads as the current time instead of as the age of
+  what is on screen. {% endcomment %}
+  <span class="instance">as of {{ as_of }}{% if stale %} · {% if age_m < 120 %}{{ age_m }}m{% else %}{{ age_m | divided_by: 60 | floor }}h{% endif %} old{% endif %}</span>
+</div>
