@@ -1,5 +1,5 @@
-import { App, Notice, Platform, Plugin, PluginSettingTab, Setting } from "obsidian";
-import type { TextComponent } from "obsidian";
+import { App, Modal, Notice, Platform, Plugin, PluginSettingTab, Setting } from "obsidian";
+import type { SettingDefinitionItem, TextComponent } from "obsidian";
 import { Budget, FREE_PAYLOAD_BYTES, FREE_PUSHES_PER_HOUR, encode, push } from "./push";
 import type { Screen } from "./screens/types";
 import { claudeUsage } from "./screens/claude-usage";
@@ -206,27 +206,26 @@ export default class TrmnlClaudeUsage extends Plugin {
   }
 
   async preview() {
-    const lines: string[] = [];
+    const results: PreviewResult[] = [];
     for (const screen of this.screens) {
       if (screen.desktopOnly && Platform.isMobile) {
-        lines.push(`${screen.label}: skipped — desktop only`);
+        results.push({ label: screen.label, summary: "skipped — desktop only" });
         continue;
       }
       try {
         const vars = await screen.collect(this.app);
         const { bytes } = encode(vars);
         const flag = bytes > this.settings.maxBytes ? " ✗ OVER" : bytes > this.settings.maxBytes * 0.9 ? " ⚠ tight" : "";
-        lines.push(`${screen.label}: ${bytes}B / ${this.settings.maxBytes}B${flag}`);
-        // User-invoked debug output, not incidental logging: the command's own
-        // Notice below tells the user to look here for the full payload, since
-        // a Notice has nowhere near enough room for it.
-        // eslint-disable-next-line no-console
-        console.log(`[trmnlcast] ${screen.id}`, vars);
+        results.push({
+          label: screen.label,
+          summary: `${bytes}B / ${this.settings.maxBytes}B${flag}`,
+          json: JSON.stringify(vars, null, 2),
+        });
       } catch (e) {
-        lines.push(`${screen.label}: collect failed — ${msg(e)}`);
+        results.push({ label: screen.label, summary: `collect failed — ${msg(e)}` });
       }
     }
-    new Notice(`TRMNL payloads\n${lines.join("\n")}\n\nFull JSON in the developer console.`, 12_000);
+    new PayloadPreviewModal(this.app, results).open();
   }
 
   paint() {
@@ -246,6 +245,47 @@ export default class TrmnlClaudeUsage extends Plugin {
 
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
+}
+
+interface PreviewResult {
+  label: string;
+  summary: string;
+  /** Pretty-printed payload JSON. Absent when the screen was skipped or failed to collect. */
+  json?: string;
+}
+
+/**
+ * Shows the full payload JSON for each screen, in-app. This replaces an
+ * earlier version that logged it to the developer console — fine for the
+ * author, invisible to anyone helping them debug over a screenshot.
+ */
+class PayloadPreviewModal extends Modal {
+  constructor(app: App, private results: PreviewResult[]) {
+    super(app);
+  }
+
+  onOpen() {
+    this.setTitle("TRMNL payloads");
+    const { contentEl } = this;
+
+    for (const r of this.results) {
+      const setting = new Setting(contentEl).setName(r.label).setDesc(r.summary);
+      if (r.json) {
+        const json = r.json;
+        setting.addButton((b) =>
+          b.setButtonText("Copy JSON").onClick(async () => {
+            await navigator.clipboard.writeText(json);
+            new Notice(`${r.label} JSON copied.`);
+          }),
+        );
+        contentEl.createEl("pre", { text: json, cls: "trmnl-preview-json" });
+      }
+    }
+  }
+
+  onClose() {
+    this.contentEl.empty();
+  }
 }
 
 /**
@@ -301,10 +341,53 @@ class TrmnlSettingTab extends PluginSettingTab {
     super(app, plugin);
   }
 
+  /**
+   * Pre-1.13.0 fallback: Obsidian calls this directly when getSettingDefinitions
+   * is unknown to it. The plugin's minAppVersion is 1.5.0, well before that API
+   * existed, so this has to keep working on its own rather than assuming the
+   * declarative path below ran instead.
+   * @deprecated Kept only for Obsidian < 1.13.0; see getSettingDefinitions.
+   */
   display() {
-    const { containerEl } = this;
-    containerEl.empty();
+    this.containerEl.empty();
+    this.renderInto(this.containerEl);
+  }
 
+  /**
+   * 1.13.0+: wraps the exact same render in one declarative item, rather than
+   * reimplementing this tab's very dynamic content (per-screen async payload
+   * sizing, live duplicate-UUID checks) as individually declarative rows. One
+   * imperative item is what `render` exists for — it just makes the tab
+   * registrable for Obsidian's settings search, which is all the review flags.
+   */
+  getSettingDefinitions(): SettingDefinitionItem[] {
+    return [
+      {
+        name: "TRMNLcast",
+        searchable: false,
+        render: (setting) => {
+          setting.settingEl.empty();
+          setting.settingEl.removeClass("setting-item");
+          this.renderInto(setting.settingEl);
+        },
+      },
+    ];
+  }
+
+  /**
+   * Re-render after a state change. Obsidian >= 1.13.0 owns the container in
+   * declarative mode, so update() (re-invoke getSettingDefinitions and
+   * re-render) is what's supposed to drive that; display() is not called by
+   * the framework there. Older Obsidian has no update() at all — display() is
+   * the only re-render path it understands. Feature-detected once per call
+   * rather than cached, since it can't change within a running session.
+   */
+  private refresh() {
+    if (typeof this.update === "function") this.update();
+    else this.display();
+  }
+
+  private renderInto(containerEl: HTMLElement) {
     containerEl.createEl("p", {
       text:
         "Each screen is its own private plugin on trmnl.com, so each one needs its own webhook UUID — " +
@@ -328,7 +411,7 @@ class TrmnlSettingTab extends PluginSettingTab {
             this.plugin.settings.pushesPerHour = plus ? 30 : 12;
             this.plugin.settings.maxBytes = plus ? 10240 : 5120;
             await this.plugin.saveSettings();
-            this.display();
+            this.refresh();
           }),
       );
 
@@ -412,7 +495,7 @@ class TrmnlSettingTab extends PluginSettingTab {
                 cfg.uuid = "";
                 await this.plugin.saveSettings();
                 new Notice(`TRMNL — moved to ${file}. Keep a copy: nothing else has it now.`, 10_000);
-                this.display();
+                this.refresh();
               } catch (e) {
                 new Notice(`TRMNL — could not write the credentials file: ${msg(e)}. Nothing was changed.`, 10_000);
               }
@@ -443,7 +526,7 @@ class TrmnlSettingTab extends PluginSettingTab {
         .addButton((b) =>
           b.setButtonText("Push").onClick(async () => {
             await this.plugin.pushAll(true, screen.id);
-            this.display();
+            this.refresh();
           }),
         );
 
