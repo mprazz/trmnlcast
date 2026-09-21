@@ -342,11 +342,17 @@ class TrmnlSettingTab extends PluginSettingTab {
   }
 
   /**
-   * Pre-1.13.0 fallback: Obsidian calls this directly when getSettingDefinitions
-   * is unknown to it. The plugin's minAppVersion is 1.5.0, well before that API
-   * existed, so this has to keep working on its own rather than assuming the
-   * declarative path below ran instead.
-   * @deprecated Kept only for Obsidian < 1.13.0; see getSettingDefinitions.
+   * Obsidian < 1.13.0 calls this directly, since it has no getSettingDefinitions
+   * to call instead — the plugin's minAppVersion is 1.5.0, well before that API
+   * existed. Also the re-render this tab calls on itself after a state change
+   * (toggling the account-limits tier, moving a credential out of the vault,
+   * pushing one screen): `containerEl` is the tab's mount point in both the
+   * imperative and declarative render paths, so emptying and rebuilding it
+   * works regardless of which one a given Obsidian version is using — without
+   * this code ever having to reference the 1.13.0-only `update()` API itself,
+   * which isn't safe to call unconditionally under a 1.5.0 minAppVersion.
+   * @deprecated Superseded by getSettingDefinitions() on Obsidian >= 1.13.0,
+   * which Obsidian calls instead of this whenever it's available.
    */
   display() {
     this.containerEl.empty();
@@ -374,19 +380,6 @@ class TrmnlSettingTab extends PluginSettingTab {
     ];
   }
 
-  /**
-   * Re-render after a state change. Obsidian >= 1.13.0 owns the container in
-   * declarative mode, so update() (re-invoke getSettingDefinitions and
-   * re-render) is what's supposed to drive that; display() is not called by
-   * the framework there. Older Obsidian has no update() at all — display() is
-   * the only re-render path it understands. Feature-detected once per call
-   * rather than cached, since it can't change within a running session.
-   */
-  private refresh() {
-    if (typeof this.update === "function") this.update();
-    else this.display();
-  }
-
   private renderInto(containerEl: HTMLElement) {
     containerEl.createEl("p", {
       text:
@@ -411,7 +404,7 @@ class TrmnlSettingTab extends PluginSettingTab {
             this.plugin.settings.pushesPerHour = plus ? 30 : 12;
             this.plugin.settings.maxBytes = plus ? 10240 : 5120;
             await this.plugin.saveSettings();
-            this.refresh();
+            this.display();
           }),
       );
 
@@ -495,7 +488,7 @@ class TrmnlSettingTab extends PluginSettingTab {
                 cfg.uuid = "";
                 await this.plugin.saveSettings();
                 new Notice(`TRMNL — moved to ${file}. Keep a copy: nothing else has it now.`, 10_000);
-                this.refresh();
+                this.display();
               } catch (e) {
                 new Notice(`TRMNL — could not write the credentials file: ${msg(e)}. Nothing was changed.`, 10_000);
               }
@@ -526,7 +519,7 @@ class TrmnlSettingTab extends PluginSettingTab {
         .addButton((b) =>
           b.setButtonText("Push").onClick(async () => {
             await this.plugin.pushAll(true, screen.id);
-            this.refresh();
+            this.display();
           }),
         );
 

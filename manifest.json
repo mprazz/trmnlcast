@@ -1,7 +1,7 @@
 {
   "id": "trmnlcast",
   "name": "TRMNLcast",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "minAppVersion": "1.5.0",
   "description": "A bridge to TRMNL: pushes your Claude Code token usage — and any other screen you write — to a TRMNL e-ink display over a private-plugin webhook.",
   "author": "Mariana Prazeres-Pinto",
