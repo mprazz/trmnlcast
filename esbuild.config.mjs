@@ -1,5 +1,5 @@
 import esbuild from "esbuild";
-import builtins from "builtin-modules";
+import { builtinModules } from "node:module";
 
 const production = process.argv[2] === "production";
 
@@ -7,7 +7,7 @@ const ctx = await esbuild.context({
   entryPoints: ["src/main.ts"],
   bundle: true,
   // Obsidian provides these at runtime; bundling them would break the plugin.
-  external: ["obsidian", "electron", ...builtins],
+  external: ["obsidian", "electron", ...builtinModules, ...builtinModules.map((m) => `node:${m}`)],
   format: "cjs",
   target: "es2020",
   logLevel: "info",

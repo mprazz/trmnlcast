@@ -34,7 +34,7 @@
 type NodeRequire = (id: string) => unknown;
 
 function nodeRequire(): NodeRequire | null {
-  const r = (globalThis as { require?: NodeRequire }).require;
+  const r = (window as unknown as { require?: NodeRequire }).require;
   return typeof r === "function" ? r : null;
 }
 

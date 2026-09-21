@@ -4,11 +4,6 @@
   padding: 0 14px 12px;
   margin: 18px 0;
 }
-.trmnl-screen-title {
-  margin: 14px 0 0;
-  font-size: var(--font-ui-medium);
-}
-
 /* Severity for settings-tab messages.
    Classes rather than inline `style.color` so a theme can restyle or override
    them, and because Obsidian's plugin review asks for it. Both map to theme

@@ -36,7 +36,7 @@ export const claudeUsage: Screen = {
   desktopOnly: true,
 
   async collect(_app: App) {
-    const nodeRequire = (globalThis as { require?: (m: string) => unknown }).require;
+    const nodeRequire = (window as unknown as { require?: (m: string) => unknown }).require;
     if (!nodeRequire) {
       throw new Error("desktop only — this screen reads ~/.claude, which mobile Obsidian cannot");
     }
@@ -135,7 +135,7 @@ function readEntries(
 
         let d: Record<string, unknown>;
         try {
-          d = JSON.parse(line);
+          d = JSON.parse(line) as Record<string, unknown>;
         } catch {
           continue;
         }

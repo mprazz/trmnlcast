@@ -217,6 +217,10 @@ export default class TrmnlClaudeUsage extends Plugin {
         const { bytes } = encode(vars);
         const flag = bytes > this.settings.maxBytes ? " ✗ OVER" : bytes > this.settings.maxBytes * 0.9 ? " ⚠ tight" : "";
         lines.push(`${screen.label}: ${bytes}B / ${this.settings.maxBytes}B${flag}`);
+        // User-invoked debug output, not incidental logging: the command's own
+        // Notice below tells the user to look here for the full payload, since
+        // a Notice has nowhere near enough room for it.
+        // eslint-disable-next-line no-console
         console.log(`[trmnlcast] ${screen.id}`, vars);
       } catch (e) {
         lines.push(`${screen.label}: collect failed — ${msg(e)}`);
@@ -231,7 +235,8 @@ export default class TrmnlClaudeUsage extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULTS, await this.loadData());
+    const stored = (await this.loadData()) as Partial<Settings> | null;
+    this.settings = Object.assign({}, DEFAULTS, stored);
   }
 
   async saveSettings() {
@@ -327,19 +332,19 @@ class TrmnlSettingTab extends PluginSettingTab {
           }),
       );
 
-    containerEl.createEl("h3", { text: "Screens" });
+    new Setting(containerEl).setName("Screens").setHeading();
 
     for (const screen of this.plugin.screens) {
       const cfg = this.plugin.configFor(screen.id);
 
       const box = containerEl.createDiv({ cls: "trmnl-screen-box" });
-      box.createEl("h4", { text: screen.label, cls: "trmnl-screen-title" });
+      new Setting(box).setName(screen.label).setHeading();
 
       const unavailable = !!screen.desktopOnly && Platform.isMobile;
       if (unavailable) {
         // Say it once, here, instead of failing every push. The settings stay
         // editable so the UUID can be pasted on whichever device is to hand.
-        box.createEl("div", {
+        box.createDiv({
           cls: "setting-item-description trmnl-warn",
           text:
             "This screen needs a desktop — it reads files outside the vault. It is skipped on " +
@@ -386,7 +391,7 @@ class TrmnlSettingTab extends PluginSettingTab {
         );
       }
 
-      const where = box.createEl("div", { cls: "setting-item-description" });
+      const where = box.createDiv({ cls: "setting-item-description" });
       where.setText(secrets.describe(resolved.source, screen.id));
       where.toggleClass("trmnl-warn", resolved.source === "vault");
 
@@ -442,7 +447,7 @@ class TrmnlSettingTab extends PluginSettingTab {
           }),
         );
 
-      const size = box.createEl("div", { cls: "setting-item-description" });
+      const size = box.createDiv({ cls: "setting-item-description" });
       if (unavailable) {
         size.setText("Payload size: not measurable on this device.");
         continue;
@@ -462,7 +467,7 @@ class TrmnlSettingTab extends PluginSettingTab {
         .catch((e) => size.setText(`Payload size: collect failed — ${msg(e)}`));
     }
 
-    const dupe = containerEl.createEl("div", { cls: "setting-item-description trmnl-error" });
+    const dupe = containerEl.createDiv({ cls: "setting-item-description trmnl-error" });
     warnOnDuplicateUuids(this.plugin, dupe);
 
     const n = this.plugin.activeScreens().length;
@@ -479,7 +484,7 @@ class TrmnlSettingTab extends PluginSettingTab {
       .addButton((b) => b.setButtonText("Push all").setCta().onClick(() => void this.plugin.pushAll(true)));
 
     if (perHour > limit) {
-      budget.descEl.createEl("div", {
+      budget.descEl.createDiv({
         cls: "trmnl-error",
         text: `⚠ Scheduled rate exceeds the hourly limit — slow down a screen's refresh, or some will be skipped.`,
       });
